@@ -1,0 +1,205 @@
+.MODEL SMALL
+.STACK 100h
+
+.DATA
+    MSG_NAME     DB 'Enter name: $'
+    MSG_DOB      DB 0Dh,0Ah,'Enter DOB (DD/MM/YYYY): $'
+    MSG_CONTACT  DB 0Dh,0Ah,'Enter contact (11 digits, starts with 01): $'
+    MSG_EMAIL    DB 0Dh,0Ah,'Enter email: $'
+    MSG_ADDRESS  DB 0Dh,0Ah,'Enter address: $'
+    MSG_ERR_NAME DB 0Dh,0Ah,'Invalid name! Letters only.$'
+    MSG_ERR_DOB  DB 0Dh,0Ah,'Invalid DOB format!$'
+    MSG_ERR_CONT DB 0Dh,0Ah,'Invalid contact!$'
+    MSG_SUCCESS  DB 0Dh,0Ah,'Information saved.$'
+    NEWLINE      DB 0Dh,0Ah,'$'
+
+    ; Buffers for input
+    USER_NAME    DB 48 DUP(?)   ; Max 48 letters
+    DOB_BUFFER   DB 10 DUP(?)   ; Format: DD/MM/YYYY
+    CONTACT_NO   DB 11 DUP(?)   ; Must be 10 digits
+    EMAIL_INPUT  DB 48 DUP(?)
+    ADDR_INPUT   DB 48 DUP(?)
+
+.CODE
+MAIN PROC
+    MOV AX, @DATA
+    MOV DS, AX
+
+    CALL CLEAR
+    CALL GET_NAME
+    CALL GET_DOB
+    CALL GET_CONTACT
+    CALL GET_EMAIL
+    CALL GET_ADDRESS
+
+    MOV AH, 9
+    LEA DX, MSG_SUCCESS
+    INT 21h
+
+    MOV AH, 4Ch
+    INT 21h
+MAIN ENDP
+
+; ------------------ PROCEDURES -------------------
+
+CLEAR PROC
+    MOV AH, 0
+    MOV AL, 3
+    INT 10h
+    RET
+CLEAR ENDP
+GET_NAME PROC
+    LEA DX, MSG_NAME
+    CALL PRINT
+    LEA DI, USER_NAME
+    MOV CX, 0
+    MOV BL, 0      ; IS_VALID flag
+GET_NAME_LOOP:
+    CALL GET_CHAR
+    CMP AL, 0Dh
+    JE CHECK_NAME
+    ; Accept space
+    CMP AL, ' '
+    JE STORE_NAME
+    ; Accept letters A-Z and a-z
+    CMP AL, 'A'
+    JB INVALID_NAME
+    CMP AL, 'Z'
+    JBE STORE_NAME
+    CMP AL, 'a'
+    JB INVALID_NAME
+    CMP AL, 'z'
+    JA INVALID_NAME
+STORE_NAME:
+    MOV [DI], AL
+    INC DI
+    INC CX
+    CMP CX, 48
+    JAE CHECK_NAME
+    JMP GET_NAME_LOOP
+INVALID_NAME:
+    MOV BL, 1
+    JMP GET_NAME_LOOP
+CHECK_NAME:
+    CMP BL, 0
+    JE GET_NAME_DONE
+    LEA DX, MSG_ERR_NAME
+    CALL PRINT
+    JMP GET_NAME
+GET_NAME_DONE:
+    RET
+GET_NAME ENDP
+
+
+
+GET_DOB PROC
+    LEA DX, MSG_DOB
+    CALL PRINT
+    LEA DI, DOB_BUFFER
+    MOV CX, 0
+GET_DOB_LOOP:
+    CALL GET_CHAR
+    CMP AL, 0Dh
+    JE CHECK_DOB
+    MOV [DI], AL
+    INC DI
+    INC CX
+    CMP CX, 10
+    JB GET_DOB_LOOP
+CHECK_DOB:
+    CMP CX, 10
+    JNE DOB_INVALID
+    CMP DOB_BUFFER[2], '/'
+    JNE DOB_INVALID
+    CMP DOB_BUFFER[5], '/'
+    JNE DOB_INVALID
+    RET
+DOB_INVALID:
+    LEA DX, MSG_ERR_DOB
+    CALL PRINT
+    JMP GET_DOB
+GET_DOB ENDP
+
+GET_CONTACT PROC
+    LEA DX, MSG_CONTACT
+    CALL PRINT
+    LEA DI, CONTACT_NO
+    MOV CX, 0
+GET_CONTACT_LOOP:
+    CALL GET_CHAR
+    CMP AL, 0Dh
+    JE CHECK_CONTACT
+    CMP AL, '0'
+    JB CONTACT_INVALID
+    CMP AL, '9'
+    JA CONTACT_INVALID
+    MOV [DI], AL
+    INC DI
+    INC CX
+    CMP CX, 11
+    JB GET_CONTACT_LOOP
+CHECK_CONTACT:
+    CMP CX, 11
+    JNE CONTACT_INVALID
+    CMP CONTACT_NO[0], '0'
+    JNE CONTACT_INVALID
+    CMP CONTACT_NO[1], '1'
+    JNE CONTACT_INVALID
+    RET
+CONTACT_INVALID:
+    LEA DX, MSG_ERR_CONT
+    CALL PRINT
+    JMP GET_CONTACT
+GET_CONTACT ENDP
+
+GET_EMAIL PROC
+    LEA DX, MSG_EMAIL
+    CALL PRINT
+    LEA DI, EMAIL_INPUT
+    MOV CX, 0
+GET_EMAIL_LOOP:
+    CALL GET_CHAR
+    CMP AL, 0Dh
+    JE DONE_EMAIL
+    MOV [DI], AL
+    INC DI
+    INC CX
+    CMP CX, 48
+    JB GET_EMAIL_LOOP
+DONE_EMAIL:
+    RET
+GET_EMAIL ENDP
+
+GET_ADDRESS PROC
+    LEA DX, MSG_ADDRESS
+    CALL PRINT
+    LEA DI, ADDR_INPUT
+    MOV CX, 0
+GET_ADDRESS_LOOP:
+    CALL GET_CHAR
+    CMP AL, 0Dh
+    JE DONE_ADDR
+    MOV [DI], AL
+    INC DI
+    INC CX
+    CMP CX, 48
+    JB GET_ADDRESS_LOOP
+DONE_ADDR:
+    RET
+GET_ADDRESS ENDP
+
+; ------------ Utilities ------------
+
+PRINT PROC
+    MOV AH, 9
+    INT 21h
+    RET
+PRINT ENDP
+
+GET_CHAR PROC
+    MOV AH, 1
+    INT 21h
+    RET
+GET_CHAR ENDP
+
+END MAIN
