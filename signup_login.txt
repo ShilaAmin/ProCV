@@ -1,0 +1,255 @@
+.model small
+.stack 100h
+
+.data
+WELCOME_MSG     db 'Welcome to ProCV Resume Builder', 0Dh, 0Ah, '=========================', 0Dh, 0Ah, '$'
+MENU_MSG        db 0Dh, 0Ah, '1. Sign Up', 0Dh, 0Ah, '2. Login', 0Dh, 0Ah, 'Enter your choice: $'
+SIGNUP_MSG      db 0Dh, 0Ah, 'Please sign up by entering your information.', 0Dh, 0Ah, '$'
+ID_PROMPT       db 0Dh, 0Ah, 'Enter User ID:', 0Dh, 0Ah, '$'
+PASS_PROMPT     db 0Dh, 0Ah, 'Enter Password:', 0Dh, 0Ah, '$'
+SIGNUP_DONE     db 0Dh, 0Ah, 'Signup completed successfully!', 0Dh, 0Ah, 'Your login code is: $'
+HEX_PROMPT      db 0Dh, 0Ah, 'Enter your login code (0-F): $'
+INVALID_HEX_MSG db 0Dh, 0Ah, 'ERROR: Invalid hex digit! Try again.', 0Dh, 0Ah, '$'
+WRONG_ID_MSG    db 0Dh, 0Ah, 'ERROR: User ID not found!', 0Dh, 0Ah, '$'
+WRONG_PASS_MSG  db 0Dh, 0Ah, 'ERROR: Password incorrect!', 0Dh, 0Ah, '$'
+LOGIN_SUCCESS   db 0Dh, 0Ah, 'SUCCESS: Login successful!', 0Dh, 0Ah, '$'
+
+USER_ID         db 15 dup(?)   ; User ID buffer (15 chars max)
+USER_PASS       db 15 dup(?)   ; Password buffer (15 chars max)
+is_password     db 0
+special         db ?
+login_code      db ?
+
+.code
+main proc
+    mov ax, @data
+    mov ds, ax
+    mov es, ax
+
+show_menu:
+    mov ah, 09h
+    lea dx, WELCOME_MSG
+    int 21h
+
+    mov ah, 09h
+    lea dx, MENU_MSG
+    int 21h
+
+    mov ah, 01h
+    int 21h
+    cmp al, '1'
+    je sign_up
+    cmp al, '2'
+    je login
+    jmp show_menu
+
+sign_up:
+    mov ah, 09h
+    lea dx, SIGNUP_MSG
+    int 21h
+
+    ; Get login code (0-F)
+    mov ah, 09h
+    lea dx, HEX_PROMPT
+    int 21h
+    mov ah, 01h
+    int 21h
+    mov special, al
+
+    cmp al, '0'
+    jb invalid_hex
+    cmp al, '9'
+    jbe convert_digit_signup
+    cmp al, 'A'
+    jb invalid_hex
+    cmp al, 'F'
+    ja invalid_hex
+    sub al, 'A' - 10
+    jmp digit_done_signup
+
+convert_digit_signup:
+    sub al, '0'
+digit_done_signup:
+    mov login_code, al
+
+    ; Get User ID
+    mov [is_password], 0
+    lea di, USER_ID
+    mov ah, 09h
+    lea dx, ID_PROMPT
+    int 21h
+
+    mov cx, 15
+    xor si, si        ; Clear source index (SI)
+read_user_id:
+    mov ah, 01h
+    int 21h
+    cmp al, 0Dh       ; Check for Enter key
+    je done_user_id
+    mov [di], al      ; Store character in user ID buffer
+    inc di            ; Increment destination index
+    loop read_user_id
+
+done_user_id:
+    ; Get Password
+    mov [is_password], 1
+    lea di, USER_PASS
+    mov ah, 09h
+    lea dx, PASS_PROMPT
+    int 21h
+
+    mov cx, 15
+    xor si, si        ; Clear source index (SI)
+read_user_pass:
+    mov ah, 01h
+    int 21h
+    cmp al, 0Dh       ; Check for Enter key
+    je done_user_pass
+    mov [di], al      ; Store character in password buffer
+    inc di            ; Increment destination index
+    loop read_user_pass
+
+done_user_pass:
+    ; Store user ID and password in memory
+    lea si, USER_ID
+    lea di, USER_ID
+    mov cx, 15
+store_user_data:
+    mov al, [si]
+    mov [di], al
+    inc di
+    inc si
+    loop store_user_data
+
+    lea si, USER_PASS
+    lea di, USER_PASS
+    mov cx, 15
+store_pass_data:
+    mov al, [si]
+    mov [di], al
+    inc di
+    inc si
+    loop store_pass_data
+
+    ; Notify user of successful sign-up
+    mov ah, 09h
+    lea dx, SIGNUP_DONE
+    int 21h
+    mov dl, special
+    mov ah, 02h
+    int 21h
+    jmp show_menu
+
+login:
+    ; Ask for login code
+    mov ah, 09h
+    lea dx, HEX_PROMPT
+    int 21h
+    mov ah, 01h
+    int 21h
+    mov special, al
+
+    ; Check if login code is valid (0-F)
+    cmp al, '0'
+    jb invalid_hex
+    cmp al, '9'
+    jbe convert_digit_login
+    cmp al, 'A'
+    jb invalid_hex
+    cmp al, 'F'
+    ja invalid_hex
+    sub al, 'A' - 10
+    jmp digit_done_login
+
+convert_digit_login:
+    sub al, '0'
+digit_done_login:
+    mov login_code, al
+
+    ; Get User ID
+    mov [is_password], 0
+    lea di, USER_ID
+    mov ah, 09h
+    lea dx, ID_PROMPT
+    int 21h
+
+    mov cx, 15
+    xor si, si        ; Clear source index (SI)
+read_login_user_id:
+    mov ah, 01h
+    int 21h
+    cmp al, 0Dh       ; Check for Enter key
+    je done_login_user_id
+    mov [di], al      ; Store character in user ID buffer
+    inc di            ; Increment destination index
+    loop read_login_user_id
+
+done_login_user_id:
+    ; Get Password
+    mov [is_password], 1
+    lea di, USER_PASS
+    mov ah, 09h
+    lea dx, PASS_PROMPT
+    int 21h
+
+    mov cx, 15
+    xor si, si        ; Clear source index (SI)
+read_login_user_pass:
+    mov ah, 01h
+    int 21h
+    cmp al, 0Dh       ; Check for Enter key
+    je done_login_user_pass
+    mov [di], al      ; Store character in password buffer
+    inc di            ; Increment destination index
+    loop read_login_user_pass
+
+done_login_user_pass:
+    ; Verify user ID
+    lea si, USER_ID
+    lea di, USER_ID
+    mov cx, 15
+verify_user_id:
+    mov al, [si]
+    cmp al, [di]
+    jne wrong_id
+    inc si
+    inc di
+    loop verify_user_id
+
+    ; Verify password
+    lea si, USER_PASS
+    lea di, USER_PASS
+    mov cx, 15
+verify_pass_data:
+    mov al, [si]
+    cmp al, [di]
+    jne wrong_pass
+    inc si
+    inc di
+    loop verify_pass_data
+
+    ; If both ID and password match, login is successful
+    mov ah, 09h
+    lea dx, LOGIN_SUCCESS
+    int 21h
+    jmp show_menu
+
+invalid_hex:
+    mov ah, 09h
+    lea dx, INVALID_HEX_MSG
+    int 21h
+    jmp show_menu
+
+wrong_id:
+    mov ah, 09h
+    lea dx, WRONG_ID_MSG
+    int 21h
+    jmp show_menu
+
+wrong_pass:
+    mov ah, 09h
+    lea dx, WRONG_PASS_MSG
+    int 21h
+    jmp show_menu
+
+end main
