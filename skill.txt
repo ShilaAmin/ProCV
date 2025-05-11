@@ -1,0 +1,190 @@
+.model small
+.stack 100h
+
+.data
+prompt_count     db 0Dh,0Ah, 'How many skills do you want to enter (1-8): $'
+prompt_skill     db 0Dh,0Ah, 'Enter skill: $'
+prompt_prof      db 0Dh,0Ah, 'Enter proficiency: $'
+newline          db 0Dh,0Ah, '$'
+output_msg       db 0Dh,0Ah, 'Your skills are:', 0Dh,0Ah, '$'
+skills           db 80 dup(' ')     ; 8 skills * 10 bytes each
+profs            db 80 dup(' ')     ; 8 proficiencies * 10 bytes each
+count            db ?
+
+.code
+main:
+    mov ax, @data
+    mov ds, ax
+
+    ; Prompt for number of skills
+    mov ah, 09h
+    lea dx, prompt_count
+    int 21h
+
+    ; Read count
+    call read_char
+    sub al, '0'         ; Convert ASCII to number
+    mov count, al       ; Store count in variable
+
+    ; ========== Input Loop ============
+    mov bx, 0           ; index = 0
+next_input:
+    mov al, count
+    cmp bl, al
+    jae show_output     ; if index >= count, jump to output
+
+    ; Prompt for skill
+    mov ah, 09h
+    lea dx, prompt_skill
+    int 21h
+
+    ; Calculate address for skill
+    mov si, bx
+    mov cx, 10
+    mul10:
+        add si, si      ; si = si * 2
+        loop mul10
+    lea di, skills
+    add di, si
+    mov dx, di
+    call read_input
+
+    ; Prompt for proficiency
+    mov ah, 09h
+    lea dx, prompt_prof
+    int 21h
+
+    ; Calculate address for proficiency
+    mov si, bx
+    mov cx, 10
+    mul10p:
+        add si, si
+        loop mul10p
+    lea di, profs
+    add di, si
+    mov dx, di
+    call read_input
+
+    inc bx
+    jmp next_input
+
+    ; ========== Output ============
+show_output:
+    mov ah, 09h
+    lea dx, output_msg
+    int 21h
+
+    mov bx, 0           ; reset index
+next_output:
+    mov al, count
+    cmp bl, al
+    jae done            ; if index >= count, done
+
+    ; Calculate address for skill
+    mov si, bx
+    mov cx, 10
+    mul10s:
+        add si, si
+        loop mul10s
+    lea di, skills
+    add di, si
+    mov dx, di
+    call print_text
+    call print_colon
+
+    ; Calculate address for proficiency
+    mov si, bx
+    mov cx, 10
+    mul10sp:
+        add si, si
+        loop mul10sp
+    lea di, profs
+    add di, si
+    mov dx, di
+    call print_text
+    call newline_call
+
+    inc bx
+    jmp next_output
+
+done:
+    mov ah, 4Ch
+    int 21h
+
+; ========== Helper Functions ============
+
+; Subroutine: read_char
+read_char:
+    mov ah, 01h
+    int 21h
+    ret
+
+; Subroutine: read_input (reads 10 characters)
+read_input:
+    push cx
+    push si
+    mov si, dx
+    mov cx, 0
+.read_loop:
+    mov ah, 01h
+    int 21h
+    cmp al, 0Dh
+    je .pad
+    mov [si], al
+    inc si
+    inc cx
+    cmp cx, 10
+    je .done_read
+    jmp .read_loop
+.pad:
+    mov al, ' '
+.pad_loop:
+    cmp cx, 10
+    je .done_read
+    mov [si], al
+    inc si
+    inc cx
+    jmp .pad_loop
+.done_read:
+    pop si
+    pop cx
+    ret
+
+; Subroutine: print_text (prints 10 chars from DS:DX)
+print_text:
+    push cx
+    push si
+    push ax
+    mov si, dx
+    mov cx, 10
+.print_loop:
+    mov al, [si]
+    mov dl, al
+    mov ah, 02h
+    int 21h
+    inc si
+    loop .print_loop
+    pop ax
+    pop si
+    pop cx
+    ret
+
+; Subroutine: print_colon
+print_colon:
+    mov dl, ' '
+    mov ah, 02h
+    int 21h
+    mov dl, ':'
+    int 21h
+    mov dl, ' '
+    int 21h
+    ret
+
+; Subroutine: newline_call
+newline_call:
+    mov ah, 09h
+    lea dx, newline
+    int 21h
+    ret
+
+end main
