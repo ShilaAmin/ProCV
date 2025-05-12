@@ -1,0 +1,2453 @@
+.MODEL Large
+.STACK 100H
+.DATA
+    starting_Art     db 0Dh,0Ah
+                     db "***  ||  ||  ***                                            ***  ||  ||  *** ", 0Dh,0Ah
+                     db "***  ||  ||  ***                                            ***  ||  ||  *** ", 0Dh,0Ah
+                     db "***  ||  ||  ***                                            ***  ||  ||  *** ", 0Dh,0Ah
+                     db "***  ||  ||  ***                                            ***  ||  ||  *** ", 0Dh,0Ah
+                     db "***  ||  ||  ***                                            ***  ||  ||  *** ", 0Dh,0Ah
+                     db "***  ||__||                                                      ||__||  *** ", 0Dh,0Ah
+                     db "***  ||__||                                                      ||__||  *** ", 0Dh,0Ah  
+                     db "***                                                                      *** ", 0Dh,0Ah
+                     db "***                                                                      *** ", 0Dh,0Ah
+                     db "***                                                                      *** ", 0Dh,0Ah
+                     db 0Dh,0Ah,"$" 
+    ; txt file generation 
+    cv_filename db "cv_output.txt", 0
+    filehandle  dw ?
+                 
+    ; ASCII Art for ProCV Title
+    procv_title      db 0Dh,0Ah
+                     db 20h,20h,20h,20h,20h,20h,20h,20h," _____           _____ ___    ___", 0Dh,0Ah
+                     db 20h,20h,20h,20h,20h,20h,20h,20h,"|  __ \         / ____|\  \  /  /", 0Dh,0Ah
+                     db 20h,20h,20h,20h,20h,20h,20h,20h,"| |__) | __ ___| |      \  \/  / ", 0Dh,0Ah
+                     db 20h,20h,20h,20h,20h,20h,20h,20h,"|  ___/ '__/ _ \ |       \    /  ", 0Dh,0Ah
+                     db 20h,20h,20h,20h,20h,20h,20h,20h,"| |   | | | (_) ||____    \  / ", 0Dh,0Ah
+                     db 20h,20h,20h,20h,20h,20h,20h,20h,"|_|   |_|  \___/ \_____|   \/ ", 0Dh,0Ah
+                     db 0Dh,0Ah, "$" 
+    DUPLICATE_MSG db 0Dh,0Ah, 'ERROR: This login code is already assigned to another user. Please try again.', 0Dh,0Ah, '$'
+                 
+    next_special db 0       ; Keeps track of the next available special code
+    MAX_USERS_MSG db 0Dh,0Ah, 'ERROR: Maximum number of users (16) reached.', 0Dh,0Ah, '$'
+
+    welcome_msg      db 20h,20h,20h,20h,20h,20h,"Welcome to ProCV - Your Professional CV Builder!", 0Dh,0Ah, 0Dh,0Ah, "$"
+    cv_line           db 0Dh,0Ah, '________________________________________________________________________________', 0Dh,0Ah, '$' 
+     line db "___________________________________________________________________________", 0Dh,0Ah, '$'
+cv_label_spacing  db '        ', 0Dh,0Ah, '$'  ; basic spacing utility if needed
+Space db "                                                                                                                          &"
+    ; Main Menu Options
+    main_menu_1      db 20h,20h,20h,20h,20h,20h,20h,20h,"1. Sign Up", 0Dh,0Ah, "$"
+    main_menu_2      db 20h,20h,20h,20h,20h,20h,20h,20h,"2. Login", 0Dh,0Ah, "$"
+    main_menu_3      db 20h,20h,20h,20h,20h,20h,20h,20h,"3. Forgot Password", 0Dh,0Ah, "$"
+    main_menu_4      db 20h,20h,20h,20h,20h,20h,20h,20h,"4. Exit", 0Dh,0Ah, 0Dh,0Ah, "$"
+    main_prompt      db 0Dh,0Ah,0Dh,0Ah,0Dh,0Ah,0Dh,0Ah,0Dh,0Ah
+                     db 20h,20h,20h,20h,20h,20h,20h,20h,"Enter your choice (1-4): $"
+    skill_title db 0Dh,0Ah, 'Skills - ', '$'
+
+    ; Line spacing
+    blank_line       db 0Dh,0Ah, "$"
+    line_break       db 0Dh,0Ah, "$"
+    clear_screen     db 0Dh,0Ah,0Dh,0Ah,0Dh,0Ah,0Dh,0Ah,0Dh,0Ah, "$"
+    
+    ;printing  CV
+    work db "Work Experience", 0Dh,0Ah, '$'
+education db "Educational Qualification", 0Dh,0Ah, '$'
+skillss db "Skills", 0Dh,0Ah, '$'
+    
+    ;Signup and Login Imported 
+
+     SIGNUP_MSG      db 0Dh,0Ah, 'Please sign up by entering your information.', 0Dh,0Ah, '$'
+     ID_PROMPT       db 0Dh,0Ah, 'Enter User ID:', 0Dh,0Ah, '$'
+     PASS_PROMPT     db 0Dh,0Ah, 'Enter Password:', 0Dh,0Ah, '$'
+     SIGNUP_DONE     db 0Dh,0Ah, 'Signup completed successfully!', 0Dh,0Ah, 'Your login code is: $'
+     HEX_PROMPT      db 0Dh,0Ah, 'Enter your login code (0-F): $'
+     INVALID_HEX_MSG db 0Dh,0Ah, 'ERROR: Invalid hex digit! Try again.', 0Dh,0Ah, '$'
+     WRONG_ID_MSG    db 0Dh,0Ah, 'ERROR: User ID not found!', 0Dh,0Ah, '$'
+     WRONG_PASS_MSG  db 0Dh,0Ah, 'ERROR: Password incorrect!', 0Dh,0Ah, '$'
+     USER_ID         db 15 dup(?)   ; User ID 
+     USER_PASS       db 15 dup(?)   ; Password 
+     is_password     db 0
+     special         db ?           
+     login_code      db ?
+
+    
+    ; Signup Page
+    signup_header    db 0Dh,0Ah, "===== SIGN UP =====", 0Dh,0Ah, "$"
+    username_prompt  db "Enter username: $"
+    password_prompt  db 0Dh,0Ah, "Enter password: $"
+    email_prompt     db 0Dh,0Ah, "Enter email: $"
+    signup_success   db 0Dh,0Ah, "Signup successful! Press any key to return to main menu...$"
+    signup_placeholder db 0Dh,0Ah, "[Signup functionality will be implemented later]", 0Dh,0Ah
+                     db "Press any key to return to main menu...$"
+    
+    ; Login Page
+    login_header     db 0Dh,0Ah, "===== LOGIN =====", 0Dh,0Ah, "$"
+    login_success    db 0Dh,0Ah, "Login successful!!!"
+    login_placeholder db 0Dh,0Ah, "[Login functionality will be implemented later]", 0Dh,0Ah
+                     db "Press any key to continue to dashboard...$"
+    
+    ; Forgot Password Page
+    forgot_header    db 0Dh,0Ah, "===== FORGOT PASSWORD =====", 0Dh,0Ah, "$"
+    forgot_email     db "Enter your email address: $"
+    forgot_message   db 0Dh,0Ah, "Password reset link sent to your email.", 0Dh,0Ah
+                     db "Press any key to return to main menu...$"
+    
+    ; Dashboard Menu
+    dashboard_header db 0Dh,0Ah, "===== PROCV DASHBOARD =====", 0Dh,0Ah, "$"
+    dashboard_1      db "1. Provide Personal Information", 0Dh,0Ah, "$"
+    dashboard_2      db "2. Provide Educational Qualifications", 0Dh,0Ah, "$"
+    dashboard_3      db "3. Provide Work Experience", 0Dh,0Ah, "$"
+    dashboard_4      db "4. Provide Skills", 0Dh,0Ah, "$"
+    dashboard_5      db "5. Make CV", 0Dh,0Ah, "$"
+    dashboard_6      db "6. Search", 0Dh,0Ah, "$"
+    dashboard_7      db "7. Logout", 0Dh,0Ah, 0Dh,0Ah, "$"
+    dashboard_prompt db "Enter your choice (1-7): $"
+    
+    not_implemented  db 0Dh,0Ah, "This feature is not yet implemented.", 0Dh,0Ah
+                     db "Press any key to continue...$"
+    
+    ; User credentials (temporary placeholders for demo)
+    username_buffer  db 30 dup(0)
+    password_buffer  db 30 dup(0)
+    email_buffer     db 50 dup(0)
+    input_buffer     db 50 dup(0)
+
+    ; Menu options
+    resume_menu_title db 0Dh,0Ah, "===== RESUME BUILDER =====", 0Dh,0Ah, "$"
+    menu_work        db "1. Add Work Experience", 0Dh,0Ah, "$"
+    menu_edu         db "2. Add Education", 0Dh,0Ah, "$"
+    menu_exit        db "3. Exit", 0Dh,0Ah, "$"
+    menu_prompt      db 0Dh,0Ah, "Enter your choice (1-3): $"
+    
+    
+    ; pERSONAL iNFO
+    
+        MSG_NAME     DB 'Enter name: $'
+    MSG_DOB      DB 0Dh,0Ah,'Enter DOB (DD/MM/YYYY): $'
+    MSG_CONTACT  DB 0Dh,0Ah,'Enter contact (11 digits, starts with 01): $'
+    MSG_EMAIL    DB 0Dh,0Ah,'Enter email: $'
+    MSG_ADDRESS  DB 0Dh,0Ah,'Enter address: $'
+    MSG_ERR_NAME DB 0Dh,0Ah,'Invalid name! Letters only.$'
+    MSG_ERR_DOB  DB 0Dh,0Ah,'Invalid DOB format!$'
+    MSG_ERR_CONT DB 0Dh,0Ah,'Invalid contact!$'
+    MSG_SUCCESS  DB 0Dh,0Ah,'Information saved.$'
+    NEWLINE      DB 0Dh,0Ah,'$'
+
+    ; Buffers for input
+    USER_NAME    DB 48 DUP(?)   ; Max 48 letters
+    DOB_BUFFER   DB 10 DUP(?)   ; Format: DD/MM/YYYY
+    CONTACT_NO   DB 11 DUP(?)   ; Must be 10 digits
+    EMAIL_INPUT  DB 48 DUP(?)
+    ADDR_INPUT   DB 48 DUP(?)
+
+    ; Work Experience Variables
+    work_count       db ?
+    work_loop        db 0
+    prompt_work_count db 0Dh,0Ah, "How many work experiences (1-4)? $"
+    prompt_position  db 0Dh,0Ah, "Position: $"
+    prompt_office    db 0Dh,0Ah, "Office/Company Name: $"
+    prompt_work_year db 0Dh,0Ah, "Years (e.g., 2020-2023): $"
+    prompt_work_dept db 0Dh,0Ah, "Department: $"
+    prompt_work_desc db 0Dh,0Ah, "Work Description (up to 256 chars): $"
+    work_newline     db 0Dh,0Ah, "$"
+    
+    ; Work Experience Added labels for better formatted output
+    label_position   db 0Dh,0Ah, "Position: $"
+    label_office     db 0Dh,0Ah, "Company: $"
+    label_work_department db 0Dh,0Ah, "Department: $" 
+    label_work_year  db 0Dh,0Ah, "Year: $"
+    label_description db 0Dh,0Ah, "Description: $"
+    experience_header db 0Dh,0Ah, "===== Work Experience #$"
+    experience_footer db 0Dh,0Ah, "=============================$"
+
+    work_input_buffer db 256 dup('$')
+    positions        db 4*30 dup('$')
+    offices          db 4*30 dup('$')
+    work_years       db 4*20 dup('$')
+    work_depts       db 4*30 dup('$')
+    work_descriptions db 4*256 dup('$')
+
+    ; Education Variables
+    edu_count        db ?
+    edu_loop_count   db 0
+    prompt_edu_count db 0Dh,0Ah, "How many qualifications (1-4)? $"
+    prompt_qual      db 0Dh,0Ah, "Qualification #$"
+    prompt_inst      db 0Dh,0Ah, "Institution: $"
+    prompt_edu_year  db 0Dh,0Ah, "Years (e.g., 2005-2009): $"
+    prompt_group     db 0Dh,0Ah, "Field/Group: $"
+    prompt_result    db 0Dh,0Ah, "Result: $"
+    prompt_edu_dept  db 0Dh,0Ah, "Department: $"
+    prompt_degree    db 0Dh,0Ah, "Degree: $"
+    edu_newline      db 0Dh,0Ah, "$" 
+    ssc_label        db "Secondary School Certificate", 0Dh,0Ah, '$'
+    hsc_label        db "Higher Secondary School Certificate", 0Dh,0Ah, '$'
+    in_label         db ' in ', '$'
+    
+    ; Education Added labels for better formatted output
+    label_institution db 0Dh,0Ah, "Institution: $"
+    label_edu_year   db 0Dh,0Ah, "Year: $"
+    label_group      db 0Dh,0Ah, "Group: $"
+    label_result     db 0Dh,0Ah, "Result: $"
+    qualification_divider db 0Dh,0Ah, "----------------------------", 0Dh,0Ah, "$"
+
+    edu_input_buffer db 30 dup('$')
+    institutions     db 4*30 dup('$')
+    edu_years        db 4*20 dup('$')
+    groups           db 4*20 dup('$')
+    results          db 4*20 dup('$')
+    edu_departments  db 4*30 dup('$')
+    degrees          db 4*30 dup('$') 
+    
+    ; Skills Section
+prompt_skill_count  db 0Dh,0Ah, 'How many skills do you want to enter (1-8): $'
+prompt_skill        db 0Dh,0Ah, 'Enter skill: $'
+prompt_prof         db 0Dh,0Ah, 'Enter proficiency: $'
+skill_output_msg    db 0Dh,0Ah, 'Your skills are:', 0Dh,0Ah, '$'
+skill_newline       db 0Dh,0Ah, '$'
+
+skills              db 80 dup(' ')     ; 8 skills * 10 chars
+profs               db 80 dup(' ')     ; 8 proficiencies * 10 chars
+skill_count         db ?
+skill_loop          db 0 
+
+; making CV format
+style_prompt db 0Dh,0Ah, "Choose a CV style:", 0Dh,0Ah
+              db "1. Modern", 0Dh,0Ah
+              db "2. Classic", 0Dh,0Ah
+              db "Enter your choice: $"
+modern_header db 0Dh,0Ah, "======= MODERN CV =======", 0Dh,0Ah, "$"
+classic_header db 0Dh,0Ah, "======= CLASSIC CV =======", 0Dh,0Ah, "$"
+
+
+.CODE
+MAIN PROC
+    MOV AX, @DATA
+    MOV DS, AX
+
+SHOW_MAIN_MENU:
+    ; Clear screen (using multiple newlines)
+    ;LEA DX, starting_Art
+    ;MOV AH, 09h
+    ;INT 21h
+    ;LEA DX, clear_screen
+    ;MOV AH, 09h
+    ;INT 21h
+    
+    ; Display ProCV ASCII art title   
+
+    LEA DX, procv_title
+    MOV AH, 09h
+    INT 21h
+    
+    ; Display welcome message
+    LEA DX, welcome_msg
+    MOV AH, 09h
+    INT 21h
+    
+    ; Display blank lines for spacing
+    LEA DX, blank_line
+    MOV AH, 09h
+    INT 21h
+    INT 21h
+    INT 21h
+
+    
+    ; Display main menu options
+    LEA DX, main_menu_1
+    MOV AH, 09h
+    INT 21h
+    
+    LEA DX, main_menu_2
+    MOV AH, 09h
+    INT 21h
+    
+    LEA DX, main_menu_3
+    MOV AH, 09h
+    INT 21h
+    
+    LEA DX, main_menu_4
+    MOV AH, 09h
+    INT 21h
+    
+    ; Get user choice
+    LEA DX, main_prompt
+    MOV AH, 09h
+    INT 21h
+    
+    MOV AH, 01h
+    INT 21h
+    
+    CMP AL, '1'
+    JE SIGNUP_PAGE
+    
+    CMP AL, '2'
+    JE LOGIN_PAGE
+    
+    CMP AL, '3'
+    JE FORGOT_PAGE
+    
+    CMP AL, '4'
+    JE EXIT_PROGRAM
+    
+    JMP SHOW_MAIN_MENU  ; Invalid choice, show menu again
+
+SIGNUP_PAGE:
+    ; Clear screen
+    LEA DX, clear_screen
+    MOV AH, 09h
+    INT 21h
+    
+    CALL SIGNUP_HANDLER
+    
+    JMP SHOW_MAIN_MENU
+
+LOGIN_PAGE:
+    ; Clear screen
+    LEA DX, clear_screen
+    MOV AH, 09h
+    INT 21h
+    
+    CALL LOGIN_HANDLER
+    CMP AL, 1
+    JE DASHBOARD_MENU
+    JMP SHOW_MAIN_MENU   ; if login failed
+
+
+FORGOT_PAGE:
+    ; Clear screen
+    LEA DX, clear_screen
+    MOV AH, 09h
+    INT 21h
+    
+    ; Display forgot password header
+   LEA DX, forgot_header
+    MOV AH, 09h
+  INT 21h
+    
+    ; Ask for email
+ LEA DX, forgot_email
+   MOV AH, 09h
+    INT 21h
+    
+JMP SHOW_MAIN_MENU 
+
+DASHBOARD_MENU:
+    ; Clear screen
+    LEA DX, clear_screen
+    MOV AH, 09h
+    INT 21h
+    
+    ; Display dashboard header
+    LEA DX, dashboard_header
+    MOV AH, 09h
+    INT 21h
+    
+    ; Display dashboard options
+    LEA DX, dashboard_1
+    MOV AH, 09h
+    INT 21h
+    
+    LEA DX, dashboard_2
+    MOV AH, 09h
+    INT 21h
+    
+    LEA DX, dashboard_3
+    MOV AH, 09h
+    INT 21h
+    
+    LEA DX, dashboard_4
+    MOV AH, 09h
+    INT 21h
+    
+    LEA DX, dashboard_5
+    MOV AH, 09h
+    INT 21h
+    
+    LEA DX, dashboard_6
+    MOV AH, 09h
+    INT 21h
+    
+    LEA DX, dashboard_7
+    MOV AH, 09h
+    INT 21h
+    
+    ; Get user choice
+    LEA DX, dashboard_prompt
+    MOV AH, 09h
+    INT 21h
+    
+    MOV AH, 01h
+    INT 21h
+    
+    CMP AL, '1'
+    JE PERSONAL_INFO_HANDLER
+    
+    CMP AL, '2'
+    JE EDU_SECTION
+    
+    CMP AL, '3'
+    JE WORK_SECTION
+    
+    CMP AL, '4'
+    JE SKILL_SECTION
+    
+    CMP AL, '5'
+    JE CV_STYLE_PROMPT
+    
+    CMP AL, '6'
+    JE NOT_IMPLEMENTED_YET
+    
+    CMP AL, '7'
+    JE SHOW_MAIN_MENU
+    
+    JMP DASHBOARD_MENU  ; Invalid choice, show menu again
+
+NOT_IMPLEMENTED_YET:
+    ; Display not implemented message
+    LEA DX, not_implemented
+    MOV AH, 09h
+    INT 21h
+    
+    ; Wait for keypress
+    MOV AH, 07h
+    INT 21h
+    
+    JMP DASHBOARD_MENU 
+    
+PERSONAL_INFO_HANDLER:
+    CALL CLEAR
+    CALL GET_NAME
+    CALL GET_DOB
+    CALL GET_CONTACT
+    CALL GET_EMAIL
+    CALL GET_ADDRESS
+    LEA DX, MSG_SUCCESS
+    MOV AH, 09h
+    INT 21h
+    MOV AH, 07h
+    INT 21h
+    JMP DASHBOARD_MENU
+
+WORK_SECTION:
+    CALL WORK_MAIN
+    JMP DASHBOARD_MENU
+
+EDU_SECTION:
+    CALL EDU_MAIN
+    JMP DASHBOARD_MENU  
+    
+SKILL_SECTION:
+    CALL SKILL_MAIN
+    JMP DASHBOARD_MENU
+
+CV_STYLE_PROMPT:
+    LEA DX, style_prompt
+    MOV AH, 09h
+    INT 21h
+
+    MOV AH, 01h
+    INT 21h
+    CMP AL, '1'
+    JE GENERATE_MODERN_CV
+    CMP AL, '2'
+    JE GENERATE_CLASSIC_CV
+    JMP DASHBOARD_MENU
+
+
+EXIT_PROGRAM:
+    MOV AH, 4Ch
+    INT 21h
+MAIN ENDP
+; Login and Sign Up 
+
+SIGNUP_HANDLER PROC
+    ; Show signup message
+    MOV AH, 09h
+    LEA DX, SIGNUP_MSG
+    INT 21h
+
+    ; Prompt for user ID
+    LEA DI, USER_ID
+    MOV AH, 09h
+    LEA DX, ID_PROMPT
+    INT 21h
+    MOV CX, 8
+    XOR SI, SI
+READ_SIGNUP_ID:
+    MOV AH, 01h
+    INT 21h
+    CMP AL, 0Dh
+    JE DONE_SIGNUP_ID
+    MOV [DI], AL
+    INC DI
+    LOOP READ_SIGNUP_ID
+DONE_SIGNUP_ID:
+
+    ; Prompt for password
+    LEA DI, USER_PASS
+    MOV AH, 09h
+    LEA DX, PASS_PROMPT
+    INT 21h
+    MOV CX, 8
+    XOR SI, SI
+READ_SIGNUP_PASS:
+    MOV AH, 01h
+    INT 21h
+    CMP AL, 0Dh
+    JE DONE_SIGNUP_PASS
+    MOV [DI], AL
+    INC DI
+    LOOP READ_SIGNUP_PASS
+DONE_SIGNUP_PASS:
+
+     ; Generate special login code sequentially
+     MOV AL, next_special
+     CMP AL, 16
+     JAE MAX_USERS          ; Already 16 users
+     MOV login_code, AL
+     INC next_special       ; Prepare for next user
+
+
+    ; Calculate memory segment = special * 1000h
+    MOV AL, login_code
+    MOV BL, 10h
+    MUL BL           ; AX = special * 16
+    MOV BX, AX       ; Store segment offset in BX
+
+    ; Check if this user slot is already taken
+    PUSH ES
+    MOV AX, BX
+    MOV ES, AX 
+    ; --- Clear new user slot to avoid false "exists" error ---
+
+
+    MOV AL, ES:[0]      ; First byte of User ID
+    CMP AL, 0           ; If it's 0, the slot is empty
+    JNE DUPLICATE_USER  ; Non-zero means already registered
+
+    ; Save User ID in [BX:0000h–0007h]
+    LEA SI, USER_ID
+    MOV DI, 0
+    MOV CX, 8
+STORE_ID_LOOP:
+    MOV AL, [SI]
+    MOV ES:[DI], AL
+    INC SI
+    INC DI
+    LOOP STORE_ID_LOOP
+
+    ; Save Password in [BX:0008h–000Fh]
+    LEA SI, USER_PASS
+    MOV DI, 8
+    MOV CX, 8
+STORE_PASS_LOOP:
+    MOV AL, [SI]
+    MOV ES:[DI], AL
+    INC SI
+    INC DI
+    LOOP STORE_PASS_LOOP
+    POP ES
+
+    ; Show signup success message
+    MOV AH, 09h
+    LEA DX, SIGNUP_DONE
+    INT 21h
+
+    ; Display the login code (convert to ASCII char)
+    MOV AL, login_code
+    CMP AL, 9
+    JBE SHOW_NUM_CODE
+    ADD AL, 'A' - 10
+    JMP SHOW_SPECIAL
+SHOW_NUM_CODE:
+    ADD AL, '0'
+SHOW_SPECIAL:
+    MOV special, AL
+    MOV DL, AL
+    MOV AH, 02h
+    INT 21h
+
+    ; Wait for any key
+    MOV AH, 07h
+    INT 21h
+    RET
+
+DUPLICATE_USER:
+    POP ES
+    MOV AH, 09h
+    LEA DX, DUPLICATE_MSG
+    INT 21h
+    MOV AH, 07h
+    INT 21h
+    RET   
+    
+    
+MAX_USERS:
+    MOV AH, 09h
+    LEA DX, MAX_USERS_MSG
+    INT 21h
+    MOV AH, 07h
+    INT 21h
+    RET
+
+SIGNUP_HANDLER ENDP
+
+
+
+
+LOGIN_HANDLER PROC
+    ; Prompt and read login code
+    MOV AH, 09h
+    LEA DX, HEX_PROMPT
+    INT 21h
+    MOV AH, 01h
+    INT 21h
+    MOV special, AL
+
+    ; Convert ASCII to numeric (0–15)
+    CMP AL, '0'
+    JB INVALID_HEX
+    CMP AL, '9'
+    JBE CONVERT_HEX
+    CMP AL, 'A'
+    JB INVALID_HEX
+    CMP AL, 'F'
+    JA INVALID_HEX
+    SUB AL, 'A' - 10
+    JMP DONE_CONVERT
+
+CONVERT_HEX:
+    SUB AL, '0'
+DONE_CONVERT:
+    MOV login_code, AL
+
+    ; Read User ID
+    LEA DI, USER_ID
+    MOV AH, 09h
+    LEA DX, ID_PROMPT
+    INT 21h
+    MOV CX, 8
+    XOR SI, SI
+READ_LOGIN_ID:
+    MOV AH, 01h
+    INT 21h
+    CMP AL, 0Dh
+    JE DONE_LOGIN_ID
+    MOV [DI], AL
+    INC DI
+    LOOP READ_LOGIN_ID
+DONE_LOGIN_ID:
+
+    ; Read Password
+    LEA DI, USER_PASS
+    MOV AH, 09h
+    LEA DX, PASS_PROMPT
+    INT 21h
+    MOV CX, 8
+    XOR SI, SI
+READ_LOGIN_PASS:
+    MOV AH, 01h
+    INT 21h
+    CMP AL, 0Dh
+    JE DONE_LOGIN_PASS
+    MOV [DI], AL
+    INC DI
+    LOOP READ_LOGIN_PASS
+DONE_LOGIN_PASS:
+
+    ; Retrieve data from special * 1000h
+    MOV AL, login_code
+    MOV BL, 10h
+    MUL BL
+    MOV BX, AX
+    PUSH ES
+    MOV AX, BX
+    MOV ES, AX
+
+    ; Compare stored user ID
+    LEA DI, USER_ID
+    MOV CX, 8
+    XOR SI, SI
+VERIFY_USER_ID:
+    MOV AL, ES:[SI]
+    CMP AL, [DI]
+    JNE WRONG_ID
+    INC SI
+    INC DI
+    LOOP VERIFY_USER_ID
+
+    ; Compare stored password
+    LEA DI, USER_PASS
+    MOV CX, 8
+    MOV SI, 8
+VERIFY_PASSWORD:
+    MOV AL, ES:[SI]
+    CMP AL, [DI]
+    JNE WRONG_PASS
+    INC SI
+    INC DI
+    LOOP VERIFY_PASSWORD
+POP ES
+
+    ; Login success
+    MOV AH, 09h
+    LEA DX, LOGIN_SUCCESS
+    INT 21h  
+    MOV AL, 1
+    RET
+
+WRONG_ID:
+    POP ES
+    MOV AH, 09h
+    LEA DX, WRONG_ID_MSG
+    INT 21h
+    MOV AL, 0
+    RET
+
+WRONG_PASS:
+    POP ES
+    MOV AH, 09h
+    LEA DX, WRONG_PASS_MSG
+    INT 21h
+    MOV AL, 0
+    RET
+
+INVALID_HEX:
+    MOV AH, 09h
+    LEA DX, INVALID_HEX_MSG
+    INT 21h 
+    MOV AL, 0
+    RET
+LOGIN_HANDLER ENDP
+
+
+
+; ---------- Personal Info Input Procedures ----------
+CLEAR PROC
+    MOV AH, 0
+    MOV AL, 3
+    INT 10h
+    RET
+CLEAR ENDP
+
+PRINT PROC
+    MOV AH, 9
+    INT 21h
+    RET
+PRINT ENDP
+
+GET_CHAR PROC
+    MOV AH, 1
+    INT 21h
+    RET
+GET_CHAR ENDP
+
+GET_NAME PROC
+    LEA DX, MSG_NAME
+    CALL PRINT
+    LEA DI, USER_NAME
+    MOV CX, 0
+    MOV BL, 0
+GET_NAME_LOOP:
+    CALL GET_CHAR
+    CMP AL, 0Dh
+    JE CHECK_NAME
+    CMP AL, ' '
+    JE STORE_NAME
+    CMP AL, 'A'
+    JB INVALID_NAME
+    CMP AL, 'Z'
+    JBE STORE_NAME
+    CMP AL, 'a'
+    JB INVALID_NAME
+    CMP AL, 'z'
+    JA INVALID_NAME
+STORE_NAME:
+    MOV [DI], AL
+    INC DI
+    INC CX
+    CMP CX, 48
+    JAE CHECK_NAME
+    JMP GET_NAME_LOOP
+INVALID_NAME:
+    MOV BL, 1
+    JMP GET_NAME_LOOP
+CHECK_NAME:
+    CMP BL, 0
+    JE GET_NAME_DONE
+    LEA DX, MSG_ERR_NAME
+    CALL PRINT
+    JMP GET_NAME
+GET_NAME_DONE:
+    RET
+GET_NAME ENDP
+
+GET_DOB PROC
+    LEA DX, MSG_DOB
+    CALL PRINT
+    LEA DI, DOB_BUFFER
+    MOV CX, 0
+GET_DOB_LOOP:
+    CALL GET_CHAR
+    CMP AL, 0Dh
+    JE CHECK_DOB
+    MOV [DI], AL
+    INC DI
+    INC CX
+    CMP CX, 10
+    JB GET_DOB_LOOP
+CHECK_DOB:
+    CMP CX, 10
+    JNE DOB_INVALID
+    CMP DOB_BUFFER[2], '/'
+    JNE DOB_INVALID
+    CMP DOB_BUFFER[5], '/'
+    JNE DOB_INVALID
+    RET
+DOB_INVALID:
+    LEA DX, MSG_ERR_DOB
+    CALL PRINT
+    JMP GET_DOB
+GET_DOB ENDP
+
+GET_CONTACT PROC
+    LEA DX, MSG_CONTACT
+    CALL PRINT
+    LEA DI, CONTACT_NO
+    MOV CX, 0
+GET_CONTACT_LOOP:
+    CALL GET_CHAR
+    CMP AL, 0Dh
+    JE CHECK_CONTACT
+    CMP AL, '0'
+    JB CONTACT_INVALID
+    CMP AL, '9'
+    JA CONTACT_INVALID
+    MOV [DI], AL
+    INC DI
+    INC CX
+    CMP CX, 11
+    JB GET_CONTACT_LOOP
+CHECK_CONTACT:
+    CMP CX, 11
+    JNE CONTACT_INVALID
+    CMP CONTACT_NO[0], '0'
+    JNE CONTACT_INVALID
+    CMP CONTACT_NO[1], '1'
+    JNE CONTACT_INVALID
+    RET
+CONTACT_INVALID:
+    LEA DX, MSG_ERR_CONT
+    CALL PRINT
+    JMP GET_CONTACT
+GET_CONTACT ENDP
+
+GET_EMAIL PROC
+    LEA DX, MSG_EMAIL
+    CALL PRINT
+    LEA DI, EMAIL_INPUT
+    MOV CX, 0
+GET_EMAIL_LOOP:
+    CALL GET_CHAR
+    CMP AL, 0Dh
+    JE DONE_EMAIL_PERSONAL
+    MOV [DI], AL
+    INC DI
+    INC CX
+    CMP CX, 48
+    JB GET_EMAIL_LOOP
+DONE_EMAIL_PERSONAL:
+    RET
+GET_EMAIL ENDP
+
+GET_ADDRESS PROC
+    LEA DX, MSG_ADDRESS
+    CALL PRINT
+    LEA DI, ADDR_INPUT
+    MOV CX, 0
+GET_ADDRESS_LOOP:
+    CALL GET_CHAR
+    CMP AL, 0Dh
+    JE DONE_ADDR
+    MOV [DI], AL
+    INC DI
+    INC CX
+    CMP CX, 48
+    JB GET_ADDRESS_LOOP
+DONE_ADDR:
+    RET
+GET_ADDRESS ENDP
+
+
+
+; ===== WORK EXPERIENCE PROCEDURES =====
+WORK_MAIN PROC
+    LEA DX, prompt_work_count
+    MOV AH, 09h
+    INT 21h
+
+    MOV AH, 01h
+    INT 21h
+    SUB AL, '0'
+    CMP AL, 1
+    JB WORK_RETURN
+    CMP AL, 4
+    JA WORK_RETURN
+    MOV work_count, AL
+
+    MOV work_loop, 0
+
+WORK_INPUT_LOOP:
+    MOV BL, work_loop
+    CMP BL, work_count
+    JE WORK_PRINT_ALL
+
+    LEA DX, prompt_position
+    MOV AH, 09h
+    INT 21h
+    CALL Work_ReadInput
+    CALL Work_StorePosition
+
+    LEA DX, prompt_office
+    MOV AH, 09h
+    INT 21h
+    CALL Work_ReadInput
+    CALL Work_StoreOffice
+
+    LEA DX, prompt_work_year
+    MOV AH, 09h
+    INT 21h
+    CALL Work_ReadInput
+    CALL Work_StoreYear
+
+    LEA DX, prompt_work_dept
+    MOV AH, 09h
+    INT 21h
+    CALL Work_ReadInput
+    CALL Work_StoreDept
+
+    LEA DX, prompt_work_desc
+    MOV AH, 09h
+    INT 21h
+    CALL Work_ReadInput
+    CALL Work_StoreDescription
+
+    INC work_loop
+    JMP WORK_INPUT_LOOP
+
+WORK_PRINT_ALL:
+    MOV work_loop, 0
+
+WORK_PRINT_LOOP:
+    MOV AL, work_loop
+    CMP AL, work_count
+    JE WORK_RETURN
+
+    ; Print experience number header
+    LEA DX, experience_header
+    MOV AH, 09h
+    INT 21h
+    
+    ; Display work experience number (1-based)
+    MOV AL, work_loop
+    INC AL
+    ADD AL, '0'   ; Convert to ASCII
+    MOV AH, 02h   ; Function to print char
+    MOV DL, AL
+    INT 21h
+    
+    ; Print Position with label
+    LEA DX, label_position
+    MOV AH, 09h
+    INT 21h
+    CALL Work_PrintPosition
+
+    ; Print Company with label
+    LEA DX, label_office
+    MOV AH, 09h
+    INT 21h
+    CALL Work_PrintOffice
+    
+    ; Print Department with label
+    LEA DX, label_work_department
+    MOV AH, 09h
+    INT 21h
+    CALL Work_PrintDept
+    
+    ; Print Year with label
+    LEA DX, label_work_year
+    MOV AH, 09h
+    INT 21h
+    CALL Work_PrintYear
+    
+    ; Print Description with label
+    LEA DX, label_description
+    MOV AH, 09h
+    INT 21h
+    CALL Work_PrintDescription
+    
+    ; Print footer separator
+    LEA DX, experience_footer
+    MOV AH, 09h
+    INT 21h
+
+    INC work_loop 
+    MOV AL, work_loop
+    CMP AL, work_count
+    JGE WORK_RETURN
+    JMP WORK_PRINT_LOOP
+
+WORK_RETURN:
+    ; Wait for keypress before returning
+    LEA DX, line_break
+    MOV AH, 09h
+    INT 21h
+    
+    
+    MOV AH, 07h
+    INT 21h
+    RET
+WORK_MAIN ENDP
+
+Work_ReadInput PROC
+    MOV SI, 0
+WORK_READ_CHAR:
+    MOV AH, 01h
+    INT 21h
+    CMP AL, 13
+    JE WORK_END_READ
+    MOV work_input_buffer[SI], AL
+    INC SI
+    CMP SI, 255
+    JL WORK_READ_CHAR
+WORK_END_READ:
+    MOV work_input_buffer[SI], '$'
+    RET
+Work_ReadInput ENDP
+
+Work_CopyBuffer PROC
+    MOV SI, OFFSET work_input_buffer
+WORK_COPY_LOOP:
+    MOV AL, [SI]
+    MOV [DI], AL
+    CMP AL, '$'
+    JE WORK_COPY_END
+    INC SI
+    INC DI
+    JMP WORK_COPY_LOOP
+WORK_COPY_END:
+    RET
+Work_CopyBuffer ENDP
+
+Work_StorePosition PROC
+    MOV AL, work_loop
+    CBW
+    MOV BX, 30
+    MUL BL
+    LEA DI, positions
+    ADD DI, AX
+    CALL Work_CopyBuffer
+    RET
+Work_StorePosition ENDP
+
+Work_StoreOffice PROC
+    MOV AL, work_loop
+    CBW
+    MOV BX, 30
+    MUL BL
+    LEA DI, offices
+    ADD DI, AX
+    CALL Work_CopyBuffer
+    RET
+Work_StoreOffice ENDP
+
+Work_StoreYear PROC
+    MOV AL, work_loop
+    CBW
+    MOV BX, 20
+    MUL BL
+    LEA DI, work_years
+    ADD DI, AX
+    CALL Work_CopyBuffer
+    RET
+Work_StoreYear ENDP
+
+Work_StoreDept PROC
+    MOV AL, work_loop
+    CBW
+    MOV BX, 30
+    MUL BL
+    LEA DI, work_depts
+    ADD DI, AX
+    CALL Work_CopyBuffer
+    RET
+Work_StoreDept ENDP
+
+Work_StoreDescription PROC
+    MOV AL, work_loop
+    CBW
+    MOV BX, 256
+    MUL BL
+    LEA DI, work_descriptions
+    ADD DI, AX
+    CALL Work_CopyBuffer
+    RET
+Work_StoreDescription ENDP
+
+Work_PrintPosition PROC
+    MOV AL, work_loop
+    CBW
+    MOV BX, 30
+    MUL BL
+    LEA DX, positions
+    ADD DX, AX
+    CALL Work_PrintString
+    RET
+Work_PrintPosition ENDP
+
+Work_PrintOffice PROC
+    MOV AL, work_loop
+    CBW
+    MOV BX, 30
+    MUL BL
+    LEA DX, offices
+    ADD DX, AX
+    CALL Work_PrintString
+    RET
+Work_PrintOffice ENDP
+
+Work_PrintYear PROC
+    MOV AL, work_loop
+    CBW
+    MOV BX, 20
+    MUL BL
+    LEA DX, work_years
+    ADD DX, AX
+    CALL Work_PrintString
+    RET
+Work_PrintYear ENDP
+
+Work_PrintDept PROC
+    MOV AL, work_loop
+    CBW
+    MOV BX, 30
+    MUL BL
+    LEA DX, work_depts
+    ADD DX, AX
+    CALL Work_PrintString
+    RET
+Work_PrintDept ENDP
+
+Work_PrintDescription PROC
+    MOV AL, work_loop
+    CBW
+    MOV BX, 256
+    MUL BL
+    LEA DX, work_descriptions
+    ADD DX, AX
+    CALL Work_PrintString
+    RET
+Work_PrintDescription ENDP
+
+; ===== EDUCATION PROCEDURES =====
+EDU_MAIN PROC
+    LEA DX, prompt_edu_count
+    MOV AH, 09h
+    INT 21h
+
+    MOV AH, 01h
+    INT 21h
+    SUB AL, '0'
+    CMP AL, 1
+    JB EDU_RETURN
+    CMP AL, 4
+    JA EDU_RETURN
+    MOV edu_count, AL
+    MOV edu_loop_count, 0
+
+EDU_INPUT_LOOP:
+    MOV AL, edu_loop_count
+    CMP AL, edu_count
+    JE EDU_PRINT_ALL
+
+    LEA DX, prompt_qual
+    MOV AH, 09h
+    INT 21h
+    MOV DL, edu_loop_count
+    ADD DL, '1'
+    MOV AH, 02h
+    INT 21h
+
+    ; Institution
+    LEA DX, prompt_inst
+    MOV AH, 09h
+    INT 21h
+    CALL Edu_ReadInput
+    CALL Edu_StoreInstitution
+
+    ; Year
+    LEA DX, prompt_edu_year
+    MOV AH, 09h
+    INT 21h
+    CALL Edu_ReadInput
+    CALL Edu_StoreYear
+
+    ; Group
+    LEA DX, prompt_group
+    MOV AH, 09h
+    INT 21h
+    CALL Edu_ReadInput
+    CALL Edu_StoreGroup
+
+    ; Result
+    LEA DX, prompt_result
+    MOV AH, 09h
+    INT 21h
+    CALL Edu_ReadInput
+    CALL Edu_StoreResult
+
+    ; Department
+    LEA DX, prompt_edu_dept
+    MOV AH, 09h
+    INT 21h
+    CALL Edu_ReadInput
+    CALL Edu_StoreDept
+
+    ; Degree
+    LEA DX, prompt_degree
+    MOV AH, 09h
+    INT 21h
+    CALL Edu_ReadInput
+    CALL Edu_StoreDegree
+
+    INC edu_loop_count
+    JMP EDU_INPUT_LOOP
+
+EDU_PRINT_ALL:
+    MOV edu_loop_count, 0
+
+EDU_PRINT_LOOP:
+    MOV AL, edu_loop_count
+    CMP AL, edu_count
+    JE EDU_RETURN
+
+    ; Print a divider between qualifications
+    LEA DX, qualification_divider
+    MOV AH, 09h
+    INT 21h
+
+    CMP edu_loop_count, 0
+    JE EDU_PRINT_SSC
+
+    CMP edu_loop_count, 1
+    JE EDU_PRINT_HSC
+
+    JMP EDU_PRINT_HIGH
+
+EDU_PRINT_SSC:
+    ; Print Secondary School Certificate header
+    LEA DX, ssc_label
+    MOV AH, 09h
+    INT 21h
+    
+    ; Print institution
+    LEA DX, label_institution
+    MOV AH, 09h
+    INT 21h
+    CALL Edu_PrintInstitution
+    
+    ; Print year
+    LEA DX, label_edu_year
+    MOV AH, 09h
+    INT 21h
+    CALL Edu_PrintYear
+    
+    ; Print group
+    LEA DX, label_group
+    MOV AH, 09h
+    INT 21h
+    CALL Edu_PrintGroup
+    
+    ; Print result
+    LEA DX, label_result
+    MOV AH, 09h
+    INT 21h
+    CALL Edu_PrintResult
+    
+    JMP EDU_NEXT_PRINT
+
+EDU_PRINT_HSC:
+    ; Print Higher Secondary School Certificate header
+    LEA DX, hsc_label
+    MOV AH, 09h
+    INT 21h
+    
+    ; Print institution
+    LEA DX, label_institution
+    MOV AH, 09h
+    INT 21h
+    CALL Edu_PrintInstitution
+    
+    ; Print year
+    LEA DX, label_edu_year
+    MOV AH, 09h
+    INT 21h
+    CALL Edu_PrintYear
+    
+    ; Print group
+    LEA DX, label_group
+    MOV AH, 09h
+    INT 21h
+    CALL Edu_PrintGroup
+    
+    ; Print result
+    LEA DX, label_result
+    MOV AH, 09h
+    INT 21h
+    CALL Edu_PrintResult
+    
+    JMP EDU_NEXT_PRINT
+
+EDU_PRINT_HIGH:
+    ; Print degree in department
+    CALL Edu_PrintDegree
+    LEA DX, in_label
+    MOV AH, 09h
+    INT 21h
+    CALL Edu_PrintDept
+    
+    ; Print newline after degree in department
+    LEA DX, edu_newline
+    MOV AH, 09h
+    INT 21h
+    
+    ; Print institution
+    LEA DX, label_institution
+    MOV AH, 09h
+    INT 21h
+    CALL Edu_PrintInstitution
+    
+    ; Print year
+    LEA DX, label_edu_year
+    MOV AH, 09h
+    INT 21h
+    CALL Edu_PrintYear
+    
+    ; Print result
+    LEA DX, label_result
+    MOV AH, 09h
+    INT 21h
+    CALL Edu_PrintResult
+
+EDU_NEXT_PRINT:
+    INC edu_loop_count
+    JMP EDU_PRINT_LOOP
+
+EDU_RETURN:
+    ; Wait for keypress before returning
+    LEA DX, line_break
+    MOV AH, 09h
+    INT 21h
+    
+    MOV AH, 07h
+    INT 21h
+    RET
+EDU_MAIN ENDP
+
+Edu_ReadInput PROC
+    MOV SI, 0
+EDU_READ_CHAR:
+    MOV AH, 01h
+    INT 21h
+    CMP AL, 13
+    JE EDU_END_READ
+    MOV edu_input_buffer[SI], AL
+    INC SI
+    CMP SI, 29
+    JL EDU_READ_CHAR
+EDU_END_READ:
+    MOV edu_input_buffer[SI], '$'
+    RET
+Edu_ReadInput ENDP
+
+Edu_CopyBuffer PROC
+    MOV SI, OFFSET edu_input_buffer
+EDU_COPY_LOOP:
+    MOV AL, [SI]
+    MOV [DI], AL
+    CMP AL, '$'
+    JE EDU_COPY_END
+    INC SI
+    INC DI
+    JMP EDU_COPY_LOOP
+EDU_COPY_END:
+    RET
+Edu_CopyBuffer ENDP
+
+Edu_StoreInstitution PROC
+    MOV AL, edu_loop_count
+    CBW
+    MOV BX, 30
+    MUL BL
+    LEA DI, institutions
+    ADD DI, AX
+    CALL Edu_CopyBuffer
+    RET
+Edu_StoreInstitution ENDP
+
+Edu_StoreYear PROC
+    MOV AL, edu_loop_count
+    CBW
+    MOV BX, 20
+    MUL BL
+    LEA DI, edu_years
+    ADD DI, AX
+    CALL Edu_CopyBuffer
+    RET
+Edu_StoreYear ENDP
+
+Edu_StoreGroup PROC
+    MOV AL, edu_loop_count
+    CBW
+    MOV BX, 20
+    MUL BL
+    LEA DI, groups
+    ADD DI, AX
+    CALL Edu_CopyBuffer
+    RET
+Edu_StoreGroup ENDP
+
+Edu_StoreResult PROC
+    MOV AL, edu_loop_count
+    CBW
+    MOV BX, 20
+    MUL BL
+    LEA DI, results
+    ADD DI, AX
+    CALL Edu_CopyBuffer
+    RET
+Edu_StoreResult ENDP
+
+Edu_StoreDept PROC
+    MOV AL, edu_loop_count
+    CBW
+    MOV BX, 30
+    MUL BL
+    LEA DI, edu_departments
+    ADD DI, AX
+    CALL Edu_CopyBuffer
+    RET
+Edu_StoreDept ENDP
+
+Edu_StoreDegree PROC
+    MOV AL, edu_loop_count
+    CBW
+    MOV BX, 30
+    MUL BL
+    LEA DI, degrees
+    ADD DI, AX
+    CALL Edu_CopyBuffer
+    RET
+Edu_StoreDegree ENDP
+
+Edu_PrintInstitution PROC
+    MOV AL, edu_loop_count
+    CBW
+    MOV BX, 30
+    MUL BL
+    LEA DX, institutions
+    ADD DX, AX
+    CALL Edu_PrintString
+    RET
+Edu_PrintInstitution ENDP
+
+Edu_PrintYear PROC
+    MOV AL, edu_loop_count
+    CBW
+    MOV BX, 20
+    MUL BL
+    LEA DX, edu_years
+    ADD DX, AX
+    CALL Edu_PrintString
+    RET
+Edu_PrintYear ENDP
+
+Edu_PrintGroup PROC
+    MOV AL, edu_loop_count
+    CBW
+    MOV BX, 20
+    MUL BL
+    LEA DX, groups
+    ADD DX, AX
+    CALL Edu_PrintString
+    RET
+Edu_PrintGroup ENDP
+
+Edu_PrintResult PROC
+    MOV AL, edu_loop_count
+    CBW
+    MOV BX, 20
+    MUL BL
+    LEA DX, results
+    ADD DX, AX
+    CALL Edu_PrintString
+    RET
+Edu_PrintResult ENDP
+
+Edu_PrintDept PROC
+    MOV AL, edu_loop_count
+    CBW
+    MOV BX, 30
+    MUL BL
+    LEA DX, edu_departments
+    ADD DX, AX
+    CALL Edu_PrintString
+    RET
+Edu_PrintDept ENDP
+
+Edu_PrintDegree PROC
+    MOV AL, edu_loop_count
+    CBW
+    MOV BX, 30
+    MUL BL
+    LEA DX, degrees
+    ADD DX, AX
+    CALL Edu_PrintString
+    RET
+Edu_PrintDegree ENDP
+
+; ===== COMMON PROCEDURES =====
+Work_PrintString PROC
+    MOV AH, 09h
+    INT 21h
+    RET
+Work_PrintString ENDP
+
+Edu_PrintString PROC
+    MOV AH, 09h
+    INT 21h
+    RET
+Edu_PrintString ENDP 
+
+SKILL_MAIN PROC
+    ; Ask for skill count
+    LEA DX, prompt_skill_count
+    MOV AH, 09h
+    INT 21h
+
+    MOV AH, 01h
+    INT 21h
+    SUB AL, '0'
+    CMP AL, 1
+    JB SKILL_DONE
+    CMP AL, 8                                 
+    JA SKILL_DONE
+    MOV skill_count, AL
+    MOV skill_loop, 0
+
+SKILL_INPUT_LOOP:
+    MOV AL, skill_loop
+    CMP AL, skill_count
+    JAE SKILL_DISPLAY
+
+    ; Skill input
+    LEA DX, prompt_skill
+    MOV AH, 09h
+    INT 21h
+MOV AL, skill_loop
+CBW
+MOV BX, 10
+MUL BL
+LEA DI, skills
+ADD DI, AX
+CALL SKILL_ReadDirect
+
+
+    ; Proficiency input
+    LEA DX, prompt_prof
+    MOV AH, 09h
+    INT 21h
+    CALL SKILL_ReadInput
+    MOV AL, skill_loop
+    CBW
+    MOV BX, 10
+    MUL BL
+    LEA DI, profs
+    ADD DI, AX
+    CALL SKILL_CopyBuffer
+
+    INC skill_loop
+    JMP SKILL_INPUT_LOOP
+
+SKILL_DISPLAY:
+    LEA DX, skill_output_msg
+    MOV AH, 09h
+    INT 21h
+    MOV skill_loop, 0
+
+SKILL_PRINT_LOOP:
+    MOV AL, skill_loop
+    CMP AL, skill_count
+    JAE SKILL_DONE
+
+    ; Print skill
+    MOV AL, skill_loop
+    CBW
+    MOV BX, 10
+    MUL BL
+    LEA DX, skills
+    ADD DX, AX
+    CALL SKILL_PrintText
+
+    ; Print colon
+    MOV DL, ':'
+    MOV AH, 02h
+    INT 21h
+
+    ; Print prof
+    MOV AL, skill_loop
+    CBW
+    MOV BX, 10
+    MUL BL
+    LEA DX, profs
+    ADD DX, AX
+    CALL SKILL_PrintText
+
+    ; New line
+    LEA DX, skill_newline
+    MOV AH, 09h
+    INT 21h
+
+    INC skill_loop
+    JMP SKILL_PRINT_LOOP
+
+SKILL_DONE:
+    RET
+SKILL_MAIN ENDP
+
+SKILL_ReadInput PROC
+    MOV SI, OFFSET work_input_buffer
+    MOV CX, 10
+    MOV AL, 0
+CLEAR_WORK_INPUT:
+    MOV [SI], AL
+    INC SI
+    LOOP CLEAR_WORK_INPUT
+
+    MOV SI, 0
+SKILL_READ_CHAR:
+    MOV AH, 01h
+    INT 21h
+    CMP AL, 13
+    JE SKILL_END_READ
+    MOV work_input_buffer[SI], AL
+    INC SI
+    CMP SI, 10
+    JB SKILL_READ_CHAR
+SKILL_END_READ:
+    MOV work_input_buffer[SI], '$'
+    RET
+SKILL_ReadInput ENDP
+
+SKILL_CopyBuffer PROC
+    MOV SI, OFFSET work_input_buffer
+SKILL_COPY_LOOP:
+    MOV AL, [SI]
+    MOV [DI], AL
+    CMP AL, '$'
+    JE SKILL_COPY_END
+    INC SI
+    INC DI
+    JMP SKILL_COPY_LOOP
+SKILL_COPY_END:
+    RET
+SKILL_CopyBuffer ENDP
+
+SKILL_PrintText PROC
+    MOV AH, 09h
+    INT 21h
+    RET
+SKILL_PrintText ENDP
+
+SKILL_ReadDirect PROC
+    ; Input: DI = pointer to destination buffer
+    MOV CX, 0            ; Character count
+READ_CHAR_DIRECT:
+    MOV AH, 01h
+    INT 21h
+    CMP AL, 13           ; If Enter pressed
+    JE SKILL_TERM
+    MOV [DI], AL
+    INC DI
+    INC CX
+    CMP CX, 9            ; Max 9 characters
+    JB READ_CHAR_DIRECT
+SKILL_TERM:
+    MOV AL, '$'          ; Terminate with $
+    MOV [DI], AL
+    RET
+SKILL_ReadDirect ENDP
+
+
+PRINT_SPACES PROC
+    MOV AH, 02h
+    MOV DL, ' '
+.PRINT_SPACE_LOOP:
+    INT 21h
+    LOOP .PRINT_SPACE_LOOP
+    RET
+PRINT_SPACES ENDP
+
+PRINT_COLON PROC
+    MOV DL, '|'
+    MOV AH, 02h
+    INT 21h
+    MOV DL, ' '
+    INT 21h
+    INT 21h
+    RET
+PRINT_COLON ENDP
+
+
+
+
+GENERATE_MODERN_CV PROC
+    CALL CLEAR 
+    CALL PRINT_PERSONAL_INFO1  
+
+    ; Line separator
+    LEA DX, line
+    MOV AH, 09h
+    INT 21h
+
+    ; Work Experience Title
+    LEA DX, work
+    MOV AH, 09h
+    INT 21h 
+
+    CALL PRINT_WORK_MODERN
+
+    ; Line separator
+    LEA DX, line
+    MOV AH, 09h
+    INT 21h
+
+    ; Education Title
+    LEA DX, education
+    MOV AH, 09h
+    INT 21h  
+
+    CALL PRINT_EDU_MODERN
+
+    ; Line separator
+    LEA DX, line
+    MOV AH, 09h
+    INT 21h
+
+    ; Skills Title
+    LEA DX, skillss
+    MOV AH, 09h
+    INT 21h 
+
+    CALL PRINT_SKILL_MODERN
+
+    MOV AH, 07h
+    INT 21h
+    CALL WRITE_TO_FILE
+    JMP DASHBOARD_MENU
+GENERATE_MODERN_CV ENDP
+
+
+PRINT_WORK_MODERN PROC
+    MOV work_loop, 0
+WORK_MODERN_LOOP:
+    MOV AL, work_loop
+    CMP AL, work_count
+    JAE WORK_MODERN_DONE
+
+    ; Print [Year]  Position @ Company (Dept: dept)
+    MOV DL, '['
+    MOV AH, 02h
+    INT 21h
+
+    CALL Work_PrintYear
+
+    MOV DL, ']'
+    MOV AH, 02h
+    INT 21h
+
+    MOV DL, ' '
+    INT 21h
+
+    CALL Work_PrintPosition
+
+    MOV DL, ' '
+    INT 21h
+
+    MOV DL, '@'
+    INT 21h
+    MOV DL, ' '
+    INT 21h
+
+    CALL Work_PrintOffice
+
+    MOV DL, ' '
+    INT 21h
+    MOV DL, '('
+    INT 21h
+
+    ; Print "Dept:"
+    LEA DX, label_work_department
+    MOV AH, 09h
+    INT 21h
+
+    CALL Work_PrintDept
+
+    MOV DL, ')'
+    MOV AH, 02h
+    INT 21h
+
+    CALL PRINT_NEWLINE
+
+    ; Print Description line
+    MOV DL, '?'
+    MOV AH, 02h
+    INT 21h
+    MOV DL, ' '
+    INT 21h
+
+    CALL Work_PrintDescription
+    CALL PRINT_NEWLINE
+
+    INC work_loop
+    JMP WORK_MODERN_LOOP
+WORK_MODERN_DONE:
+    RET
+PRINT_WORK_MODERN ENDP
+
+
+PRINT_EDU_MODERN PROC
+    MOV edu_loop_count, 0
+EDU_MODERN_LOOP:
+    MOV AL, edu_loop_count
+    CMP AL, edu_count
+    JAE EDU_MODERN_DONE
+
+    CALL Edu_PrintDegree
+    LEA DX, in_label
+    CALL PRINT
+    CALL Edu_PrintDept
+    CALL PRINT_NEWLINE
+
+    LEA DX, label_institution
+    CALL PRINT
+    CALL Edu_PrintInstitution
+    CALL PRINT_NEWLINE
+
+    LEA DX, label_edu_year
+    CALL PRINT
+    CALL Edu_PrintYear
+    CALL PRINT_NEWLINE
+
+    LEA DX, label_result
+    CALL PRINT
+    CALL Edu_PrintResult
+    CALL PRINT_NEWLINE
+
+    INC edu_loop_count
+    JMP EDU_MODERN_LOOP
+EDU_MODERN_DONE:
+    RET
+PRINT_EDU_MODERN ENDP
+
+
+PRINT_SKILL_MODERN PROC
+    ; Print skill output title
+    LEA DX, skill_output_msg  ; "Your skills are:"
+    MOV AH, 09h
+    INT 21h
+
+    ; Initialize skill_loop to 0
+    MOV skill_loop, 0
+
+SKILL_PRINT_LOOP_MODERN:
+    MOV AL, skill_loop
+    CMP AL, skill_count
+    JAE SKILL_MODERN_DONE
+
+    ; Calculate skill offset (skill_loop * 10)
+    MOV AL, skill_loop
+    CBW
+    MOV BX, 10
+    MUL BL
+    LEA SI, skills
+    ADD SI, AX         ; SI = offset to current skill
+    LEA DI, profs
+    ADD DI, AX         ; DI = offset to corresponding proficiency
+
+    ; Print skill
+PRINT_SKILL_CHARS:
+    MOV AL, [SI]
+    CMP AL, '$'
+    JE AFTER_SKILL
+    MOV DL, AL
+    MOV AH, 02h
+    INT 21h
+    INC SI
+    JMP PRINT_SKILL_CHARS
+
+AFTER_SKILL:
+    ; Print colon
+    MOV DL, ':'
+    MOV AH, 02h
+    INT 21h
+
+    ; Print proficiency
+PRINT_PROF_CHARS:
+   MOV AL, [DI]
+   CMP AL, '$'
+   JE AFTER_PROF
+    MOV DL, AL
+   MOV AH, 02h
+    INT 21h
+    INC DI
+  JMP PRINT_PROF_CHARS
+
+AFTER_PROF:
+    ; Newline
+    LEA DX, skill_newline
+  MOV AH, 09h
+    INT 21h
+
+    ; Increment and loop
+   INC skill_loop
+    JMP SKILL_PRINT_LOOP_MODERN
+
+SKILL_MODERN_DONE:
+    RET
+PRINT_SKILL_MODERN ENDP
+
+
+
+
+
+PRINT_NEWLINE PROC
+    MOV DL, 0Dh
+    MOV AH, 02h
+    INT 21h
+    MOV DL, 0Ah
+    MOV AH, 02h
+    INT 21h
+    RET
+PRINT_NEWLINE ENDP
+
+
+GENERATE_CLASSIC_CV PROC
+    CALL CLEAR 
+    CALL PRINT_HEADER_SECTION1
+        MOV DL, 0Ah
+    MOV AH, 02h
+    INT 21h 
+
+    ; Print line
+    LEA DX, line        ; line should be defined as: line db "__________________________________________________", 0Dh,0Ah, '$'
+    MOV AH, 09h
+    INT 21h
+
+    ; Newline
+    MOV DL, 0Ah
+    MOV AH, 02h
+    INT 21h  
+    
+    LEA DX, work        ; work db "Work Experience", 0Dh,0Ah, '$'
+    MOV AH, 09h
+    INT 21h
+
+    CALL PRINT_WORK_LINE1
+         MOV DL, 0Ah
+    MOV AH, 02h
+    INT 21h 
+    LEA DX, line        ; line should be defined as: line db "__________________________________________________", 0Dh,0Ah, '$'
+    MOV AH, 09h
+    INT 21h    
+    
+    LEA DX, education   ; education db "Educational Qualification", 0Dh,0Ah, '$'
+    MOV AH, 09h
+    INT 21h 
+    
+    CALL PRINT_EDUCATION_FORMATTED1   
+         MOV DL, 0Ah
+    MOV AH, 02h
+    INT 21h 
+    
+    LEA DX, line        ; line should be defined as: line db "__________________________________________________", 0Dh,0Ah, '$'
+    MOV AH, 09h
+    INT 21h 
+
+    ; Line separator
+    LEA DX, line
+    MOV AH, 09h
+    INT 21h
+    MOV DL, 0Ah
+    MOV AH, 02h
+    INT 21h
+    
+    LEA DX, skillss      ; skills db "Skills", 0Dh,0Ah, '$'
+    MOV AH, 09h
+    INT 21h 
+    
+    CALL PRINT_SKILLS_LINE1
+
+
+    ; Final wait before return
+    MOV AH, 07h
+    INT 21h   
+    CALL WRITE_TO_FILE
+
+    JMP DASHBOARD_MENU
+GENERATE_CLASSIC_CV ENDP
+
+
+
+PRINT_PERSONAL_INFO1 PROC
+    ; Print Name
+    LEA DX, USER_NAME
+    CALL PRINT_NEWLINE
+    CALL PRINT
+
+    ; Print Address
+    LEA DX, ADDR_INPUT
+    CALL PRINT_NEWLINE
+    CALL PRINT
+
+    ; Print Email
+    LEA DX, EMAIL_INPUT
+    CALL PRINT_NEWLINE
+    CALL PRINT
+
+    ; Print Contact Number
+    LEA DX, CONTACT_NO
+    CALL PRINT_NEWLINE
+    CALL PRINT
+
+    RET
+PRINT_PERSONAL_INFO1 ENDP
+
+
+PRINT_WORK_EXPERIENCE1 PROC
+    MOV work_loop, 0
+
+WORK_PRINT_LOOP1:
+    MOV AL, work_loop
+    CMP AL, work_count
+    JE WORK_DONE1
+
+    LEA DX, experience_header
+    MOV AH, 09h
+    INT 21h
+
+    MOV AL, work_loop
+    INC AL
+    ADD AL, '0'
+    MOV AH, 02h
+    MOV DL, AL
+    INT 21h
+
+    LEA DX, label_position
+    MOV AH, 09h
+    INT 21h
+    CALL Work_PrintPosition
+
+    LEA DX, label_office
+    MOV AH, 09h
+    INT 21h
+    CALL Work_PrintOffice
+
+    LEA DX, label_work_department
+    MOV AH, 09h
+    INT 21h
+    CALL Work_PrintDept
+
+    LEA DX, label_work_year
+    MOV AH, 09h
+    INT 21h
+    CALL Work_PrintYear
+
+    LEA DX, label_description
+    MOV AH, 09h
+    INT 21h
+    CALL Work_PrintDescription
+
+    LEA DX, experience_footer
+    MOV AH, 09h
+    INT 21h
+
+    INC work_loop
+    JMP WORK_PRINT_LOOP1
+
+WORK_DONE1:
+    RET
+PRINT_WORK_EXPERIENCE1 ENDP
+
+PRINT_EDUCATION1 PROC
+    MOV edu_loop_count, 0
+
+EDU_PRINT_LOOP1:
+    MOV AL, edu_loop_count
+    CMP AL, edu_count
+    JAE EDU_DONE1
+
+    ; Divider
+    LEA DX, qualification_divider
+    CALL PRINT
+
+    CMP edu_loop_count, 0
+    JE PRINT_SSC1
+
+    CMP edu_loop_count, 1
+    JE PRINT_HSC1
+
+    JMP PRINT_HIGH1
+
+PRINT_SSC1:
+    LEA DX, ssc_label
+    CALL PRINT
+
+    LEA DX, label_institution
+    CALL PRINT
+    CALL Edu_PrintInstitution
+
+    LEA DX, label_edu_year
+    CALL PRINT
+    CALL Edu_PrintYear
+
+    LEA DX, label_group
+    CALL PRINT
+    CALL Edu_PrintGroup
+
+    LEA DX, label_result
+    CALL PRINT
+    CALL Edu_PrintResult
+
+    JMP PRINT_NEXT1
+
+PRINT_HSC1:
+    LEA DX, hsc_label
+    CALL PRINT
+
+    LEA DX, label_institution
+    CALL PRINT
+    CALL Edu_PrintInstitution
+
+    LEA DX, label_edu_year
+    CALL PRINT
+    CALL Edu_PrintYear
+
+    LEA DX, label_group
+    CALL PRINT
+    CALL Edu_PrintGroup
+
+    LEA DX, label_result
+    CALL PRINT
+    CALL Edu_PrintResult
+
+    JMP PRINT_NEXT1
+
+PRINT_HIGH1:
+    CALL Edu_PrintDegree
+    LEA DX, in_label
+    CALL PRINT
+    CALL Edu_PrintDept
+    CALL PRINT_NEWLINE
+
+    LEA DX, label_institution
+    CALL PRINT
+    CALL Edu_PrintInstitution
+
+    LEA DX, label_edu_year
+    CALL PRINT
+    CALL Edu_PrintYear
+
+    LEA DX, label_result
+    CALL PRINT
+    CALL Edu_PrintResult
+
+PRINT_NEXT1:
+    INC edu_loop_count
+    JMP EDU_PRINT_LOOP1
+
+EDU_DONE1:
+    RET
+PRINT_EDUCATION1 ENDP
+
+
+PRINT_SKILLS1 PROC
+    MOV skill_loop, 0
+
+SKILL_PRINT_LOOP1:
+    MOV AL, skill_loop
+    CMP AL, skill_count
+    JAE SKILL_DONE1
+
+    ; Load skill pointer
+    MOV AL, skill_loop
+    CBW
+    MOV BX, 10
+    MUL BL
+    LEA DX, skills
+    ADD DX, AX
+    CALL SKILL_PrintText
+
+    ; Print " - "
+    MOV DL, ' '
+    MOV AH, 02h
+    INT 21h
+    MOV DL, '-'
+    INT 21h
+    MOV DL, '-'
+    INT 21h
+    MOV DL, ' '
+    INT 21h
+
+   
+    LEA DX, profs
+    ADD DX, AX
+    CALL SKILL_PrintText
+
+    
+    CALL PRINT_NEWLINE
+
+    INC skill_loop
+    JMP SKILL_PRINT_LOOP1
+
+SKILL_DONE1:
+    RET
+PRINT_SKILLS1 ENDP
+
+PRINT_HEADER_SECTION1 PROC
+    ; Print centered name (25 spaces before)
+    MOV CX, 25
+PRINT_NAME_SPACES1:
+    MOV AH, 02h
+    MOV DL, ' '
+    INT 21h
+    LOOP PRINT_NAME_SPACES1
+
+    ; Print name
+    LEA DX, USER_NAME
+    CALL PRINT
+    CALL PRINT_NEWLINE
+
+    ; Print line separator
+    LEA DX, cv_line
+    CALL PRINT
+
+    ; Print Address
+    LEA DX, ADDR_INPUT
+    CALL PRINT_NEWLINE
+    CALL PRINT
+
+    ; Print Email
+    LEA DX, EMAIL_INPUT
+    CALL PRINT_NEWLINE
+    CALL PRINT
+
+    ; Print Contact No
+    LEA DX, CONTACT_NO
+    CALL PRINT_NEWLINE
+    CALL PRINT
+
+    RET
+PRINT_HEADER_SECTION1 ENDP
+
+PRINT_WORK_LINE1 PROC
+    MOV work_loop, 0
+WORK_LOOP_CLASSIC:
+    MOV AL, work_loop
+    CMP AL, work_count
+    JAE WORK_DONE_CLASSIC
+
+    ; Print work title line
+    MOV DL, '['
+    MOV AH, 02h
+    INT 21h
+    CALL Work_PrintYear
+    MOV DL, ']'
+    INT 21h
+    MOV DL, ' '
+    INT 21h
+
+    CALL Work_PrintPosition
+    MOV DL, ' '
+    INT 21h
+    MOV DL, '@'
+    INT 21h
+    MOV DL, ' '
+    INT 21h
+    CALL Work_PrintOffice
+    CALL PRINT_NEWLINE
+
+    ; Print description
+    MOV DL, '?'
+    MOV AH, 02h
+    INT 21h
+    MOV DL, ' '
+    INT 21h
+    CALL Work_PrintDescription
+    CALL PRINT_NEWLINE
+
+    INC work_loop
+    JMP WORK_LOOP_CLASSIC
+WORK_DONE_CLASSIC:
+    RET
+PRINT_WORK_LINE1 ENDP
+
+PRINT_EDUCATION_FORMATTED1 PROC
+    MOV edu_loop_count, 0
+PRINT_EDU_LOOP_CLASSIC:
+    MOV AL, edu_loop_count
+    CMP AL, edu_count
+    JAE EDU_DONE_CLASSIC
+
+    CALL Edu_PrintDegree
+    LEA DX, in_label
+    CALL PRINT
+    CALL Edu_PrintDept
+    CALL PRINT_NEWLINE
+
+    LEA DX, label_institution
+    CALL PRINT
+    CALL Edu_PrintInstitution
+    CALL PRINT_NEWLINE
+
+    LEA DX, label_edu_year
+    CALL PRINT
+    CALL Edu_PrintYear
+    CALL PRINT_NEWLINE
+
+    LEA DX, label_result
+    CALL PRINT
+    CALL Edu_PrintResult
+    CALL PRINT_NEWLINE
+
+    INC edu_loop_count
+    JMP PRINT_EDU_LOOP_CLASSIC
+EDU_DONE_CLASSIC:
+    RET
+PRINT_EDUCATION_FORMATTED1 ENDP
+
+PRINT_SKILLS_LINE1 PROC
+    LEA DX, skill_title
+    CALL PRINT
+
+    MOV skill_loop, 0
+PRINT_SKILLS_LOOP1:
+    MOV AL, skill_loop
+    CMP AL, skill_count
+    JAE SKILL_LINE_DONE1
+
+    ; Get skill address
+    CBW
+    MOV BX, 10
+    MUL BL
+    LEA SI, skills
+    ADD SI, AX
+
+    ; Print the skill
+PRINT_SKILL_CHAR_LOOP1:
+    MOV AL, [SI]
+    CMP AL, '$'
+    JE PRINT_COMMA_IF_NEEDED1
+    MOV DL, AL
+    MOV AH, 02h
+    INT 21h
+    INC SI
+    JMP PRINT_SKILL_CHAR_LOOP1
+
+PRINT_COMMA_IF_NEEDED1:
+    MOV AL, skill_loop
+    INC AL
+    CMP AL, skill_count
+    JAE SKILL_FINAL1
+    MOV DL, ','
+    MOV AH, 02h
+    INT 21h
+    MOV DL, ' '
+    INT 21h
+
+SKILL_FINAL1:
+    INC skill_loop
+    JMP PRINT_SKILLS_LOOP1
+
+SKILL_LINE_DONE1:
+    CALL PRINT_NEWLINE
+    RET
+PRINT_SKILLS_LINE1 ENDP
+
+
+WRITE_TO_FILE PROC
+    ; Open/create file (create if not exists)
+    MOV AH, 3Ch         ; Function: Create file
+    MOV CX, 0           ; Normal file attributes
+    LEA DX, cv_filename
+    INT 21h
+    JC FILE_ERROR
+    MOV filehandle, AX  ; Store file handle
+
+    ; You can now write each section to file using Function 40h
+    ; For example: write user name
+    LEA DX, USER_NAME
+    CALL FILE_WRITE_STRING
+
+    LEA DX, NEWLINE     ; You can write newlines too
+    CALL FILE_WRITE_STRING
+
+    ; Continue for other sections: ADDR_INPUT, EMAIL_INPUT, etc.
+
+    ; Close the file
+    MOV AH, 3Eh
+    MOV BX, filehandle
+    INT 21h
+
+    RET
+
+FILE_ERROR:
+    ; (Optional) Error handler if needed
+    RET
+WRITE_TO_FILE ENDP
+
+FILE_WRITE_STRING PROC
+    PUSH CX
+    PUSH DX
+    PUSH AX
+    PUSH BX
+    PUSH SI
+
+    ; Compute string length manually (null-terminated with $)
+    MOV SI, DX
+    XOR CX, CX
+COUNT_LOOP:
+    MOV AL, [SI]
+    CMP AL, '$'
+    JE COUNT_DONE
+    INC SI
+    INC CX
+    JMP COUNT_LOOP
+COUNT_DONE:
+
+    ; Write the string
+    MOV AH, 40h
+    MOV BX, filehandle
+    ; DX already has the pointer to string
+    INT 21h
+
+    POP SI
+    POP BX
+    POP AX
+    POP DX
+    POP CX
+    RET
+FILE_WRITE_STRING ENDP
+
+END MAIN
